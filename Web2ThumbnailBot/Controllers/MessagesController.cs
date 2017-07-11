@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 using System.Web.Http;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Connector;
+using System;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace Web2ThumbnailBot
 {
@@ -18,7 +21,11 @@ namespace Web2ThumbnailBot
         {
             if (activity.Type == ActivityTypes.Message)
             {
-                await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+                ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
+                //await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+
+                // Return our reply to the user.                 
+                await ProcessResponse(connector, activity);
             }
             else
             {
@@ -27,6 +34,66 @@ namespace Web2ThumbnailBot
             var response = Request.CreateResponse(HttpStatusCode.OK);
             return response;
         }
+
+        public bool CheckUri(string uri, out string exMsg)
+        {
+            exMsg = string.Empty;
+            try
+            {
+                using (var client = new WebClient())
+                {
+                    using (var stream = client.OpenRead(uri))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                exMsg = ex.Message;
+                return false;
+            }
+        }
+
+
+        private bool IsValidUri(string uriName, out string exMsg)
+        {
+            uriName = uriName.ToLower().Replace(constants.cStrHttps, string.Empty); uriName = (uriName.ToLower().Contains(constants.cStrHttp)) ? uriName : constants.cStrHttp + uriName;
+
+            return CheckUri(uriName, out exMsg);
+        }
+
+        private async Task ProcessResponse(ConnectorClient connector, Activity input)
+        {
+            Activity reply = null;
+            string exMsg = string.Empty;
+
+            var _urls = new List<string>();
+
+            foreach (var fragment in input.Text.Split(' '))
+            {
+                if (IsValidUri(fragment, out exMsg))
+                    _urls.Add(fragment);
+            };
+
+            if (!_urls.Any())
+            {
+                reply = input.CreateReply(" Hi, this is the URl you want a thumbnail for?");
+                await connector.Conversations.ReplyToActivityAsync(reply);
+            }
+            else
+            {                
+                foreach(var _url in _urls)
+                {
+                    input.Text = _url;
+                    await Thumbnails.ProcessScreenshot(connector, input);
+                }
+            }
+        }
+
+
+
+
 
         private Activity HandleSystemMessage(Activity message)
         {

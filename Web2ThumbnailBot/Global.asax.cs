@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Bot.Connector;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -9,9 +10,14 @@ namespace Web2ThumbnailBot
 {
     public class WebApiApplication : System.Web.HttpApplication
     {
+        private object message;
+
         protected void Application_Start()
         {
             GlobalConfiguration.Configure(WebApiConfig.Register);
         }
+
+        
     }
 }
+
